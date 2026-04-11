@@ -1,0 +1,48 @@
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+venv/
+.venv/
+*.egg-info/
+dist/
+build/
+
+# ── Environment & Secrets ─────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── Google / Gmail credentials ────────────────────────────────────────────────
+credentials/
+*.json.bak
+
+# ── Twilio ────────────────────────────────────────────────────────────────────
+twilio_2FA_recovery_code.txt
+twilio_2FA_recovery_code.txt:Zone.Identifier
+
+# ── PDF / Personal files ──────────────────────────────────────────────────────
+*.pdf
+*.pdf:Zone.Identifier
+personal-guide.md
+
+# ── Node.js ───────────────────────────────────────────────────────────────────
+node_modules/
+web-form/.next/
+web-form/out/
+web-form/.env.local
+
+# ── Playwright / Test artifacts ───────────────────────────────────────────────
+.playwright-mcp/
+
+# ── Zone identifiers (WSL Windows artifacts) ──────────────────────────────────
+*:Zone.Identifier
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+*.log
+logs/
+
+# ── IDE ───────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp

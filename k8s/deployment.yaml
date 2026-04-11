@@ -1,0 +1,159 @@
+# =============================================================================
+# API Deployment  —  FastAPI (uvicorn)  —  3 replicas
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fte-api
+  namespace: customer-success-fte
+  labels:
+    app: customer-success-fte
+    component: api
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: customer-success-fte
+      component: api
+  template:
+    metadata:
+      labels:
+        app: customer-success-fte
+        component: api
+    spec:
+      containers:
+        - name: fte-api
+          image: your-registry/customer-success-fte:latest
+          # CMD from Dockerfile: uvicorn app.api.main:app
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: fte-config
+            - secretRef:
+                name: fte-secrets
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          volumeMounts:
+            - name: gmail-credentials
+              mountPath: /app/credentials
+              readOnly: true
+      volumes:
+        - name: gmail-credentials
+          secret:
+            secretName: gmail-credentials-secret
+            optional: true
+---
+# =============================================================================
+# Worker Deployment  —  Kafka consumer + agent runner  —  3 replicas
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fte-message-processor
+  namespace: customer-success-fte
+  labels:
+    app: customer-success-fte
+    component: message-processor
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: customer-success-fte
+      component: message-processor
+  template:
+    metadata:
+      labels:
+        app: customer-success-fte
+        component: message-processor
+    spec:
+      containers:
+        - name: message-processor
+          image: your-registry/customer-success-fte:latest
+          # Override CMD to run the Kafka worker instead of the API server
+          command: ["python", "-m", "app.worker.message_processor"]
+          envFrom:
+            - configMapRef:
+                name: fte-config
+            - secretRef:
+                name: fte-secrets
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+          volumeMounts:
+            - name: gmail-credentials
+              mountPath: /app/credentials
+              readOnly: true
+      volumes:
+        - name: gmail-credentials
+          secret:
+            secretName: gmail-credentials-secret
+            optional: true
+---
+# =============================================================================
+# Service  —  exposes the API internally
+# =============================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: customer-success-fte
+  namespace: customer-success-fte
+spec:
+  selector:
+    app: customer-success-fte
+    component: api
+  ports:
+    - port: 80
+      targetPort: 8000
+      protocol: TCP
+---
+# =============================================================================
+# Ingress  —  routes external HTTPS traffic to the API service
+# =============================================================================
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: customer-success-fte
+  namespace: customer-success-fte
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  tls:
+    - hosts:
+        - support-api.your-domain.com
+      secretName: fte-tls
+  rules:
+    - host: support-api.your-domain.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: customer-success-fte
+                port:
+                  number: 80

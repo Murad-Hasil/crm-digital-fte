@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fte-config
+  namespace: customer-success-fte
+data:
+  ENVIRONMENT: "production"
+  LOG_LEVEL: "INFO"
+  KAFKA_BOOTSTRAP_SERVERS: "kafka.kafka.svc.cluster.local:9092"
+  POSTGRES_HOST: "postgres.customer-success-fte.svc.cluster.local"
+  OPENAI_BASE_URL: "https://api.groq.com/openai/v1"
+  MODEL_NAME: "llama-3.3-70b-versatile"
+  GMAIL_ENABLED: "true"
+  WHATSAPP_ENABLED: "true"
+  WEBFORM_ENABLED: "true"
+  MAX_EMAIL_LENGTH: "2000"
+  MAX_WHATSAPP_LENGTH: "1600"
+  MAX_WEBFORM_LENGTH: "1000"
+  CORS_ORIGINS: "https://your-domain.com"

@@ -1,0 +1,14 @@
+**/__pycache__
+**/*.pyc
+**/*.pyo
+.env
+.env.*
+!.env.example
+credentials/
+web-form/node_modules
+web-form/.next
+*.pdf
+k8s/
+tests/
+database/
+.git/
