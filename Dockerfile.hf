@@ -1,0 +1,56 @@
+# =============================================================================
+# Hugging Face Spaces — CloudScale AI Customer Success FTE
+# Single-container deployment: FastAPI + asyncio queue (no Kafka/Java needed)
+#
+# Port: 7860 (HF Spaces requirement)
+# Mode: USE_LOCAL_QUEUE=true  →  asyncio.Queue replaces Kafka broker
+#
+# Required HF Space Secrets:
+#   DATABASE_URL            Neon PostgreSQL connection string
+#   GROQ_API_KEY            Groq API key (llama-3.3-70b-versatile)
+#   TWILIO_ACCOUNT_SID      Twilio account SID
+#   TWILIO_AUTH_TOKEN       Twilio auth token
+#   TWILIO_WHATSAPP_NUMBER  whatsapp:+14155238886
+#   GMAIL_CREDENTIALS_JSON  Full contents of gmail_credentials.json (optional)
+#   CORS_ORIGINS            Comma-separated allowed origins (e.g. your Vercel URL)
+# =============================================================================
+
+FROM python:3.12-slim
+
+# Build deps for asyncpg / cryptography wheels
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    libpq-dev \
+    curl \
+  && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application source
+COPY app/        ./app/
+COPY context/    ./context/
+COPY scripts/    ./scripts/
+COPY database/   ./database/
+
+# Create credentials directory (Gmail creds written at runtime from env var)
+RUN mkdir -p /app/credentials
+
+# HF Spaces: must listen on 7860
+EXPOSE 7860
+
+# Environment — switch to local asyncio queue (no Kafka broker needed)
+ENV USE_LOCAL_QUEUE=true
+ENV OPENAI_BASE_URL=https://api.groq.com/openai/v1
+ENV OPENAI_AGENTS_DISABLE_TRACING=1
+ENV LOG_LEVEL=INFO
+ENV CORS_ORIGINS=*
+
+# Single-process: FastAPI + background queue consumer
+CMD ["uvicorn", "app.api.main:app", \
+     "--host", "0.0.0.0", \
+     "--port", "7860", \
+     "--workers", "1"]
