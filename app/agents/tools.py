@@ -79,7 +79,7 @@ def _get_embedding_model():
 
 
 @function_tool
-async def search_knowledge_base(query: str, max_results: int = 5) -> str:
+async def search_knowledge_base(query: str) -> str:
     """Search product documentation for relevant information.
 
     Use this when the customer asks questions about product features,
@@ -88,11 +88,11 @@ async def search_knowledge_base(query: str, max_results: int = 5) -> str:
 
     Args:
         query: The search query derived from the customer's question.
-        max_results: Maximum number of results to return (default 5).
 
     Returns:
         Formatted documentation snippets with relevance context.
     """
+    max_results = 5
     pool = await get_db_pool()
     async with pool.acquire() as conn:
         # Primary: cosine similarity using pgvector <=> operator
@@ -159,8 +159,8 @@ async def search_knowledge_base(query: str, max_results: int = 5) -> str:
 @function_tool
 async def create_ticket(
     issue: str,
-    priority: str = "medium",
-    category: Optional[str] = None,
+    priority: str,
+    category: str,
 ) -> str:
     """Create a support ticket for tracking this interaction.
 
@@ -169,8 +169,8 @@ async def create_ticket(
 
     Args:
         issue: Brief summary of the customer's issue.
-        priority: Ticket priority — 'low', 'medium', 'high', or 'urgent'.
-        category: Issue category — 'general', 'technical', 'billing', 'feedback', 'bug_report'.
+        priority: Ticket priority — use 'low', 'medium', 'high', or 'urgent'.
+        category: Issue category — use 'general', 'technical', 'billing', 'feedback', or 'bug_report'.
 
     Returns:
         Ticket ID string for use in subsequent tool calls.
@@ -247,7 +247,7 @@ async def get_customer_history() -> str:
 # ---------------------------------------------------------------------------
 
 @function_tool
-async def escalate_to_human(ticket_id: str, reason: str, urgency: str = "normal") -> str:
+async def escalate_to_human(ticket_id: str, reason: str, urgency: str) -> str:
     """Escalate the conversation to a human support agent.
 
     Use when:
@@ -260,7 +260,7 @@ async def escalate_to_human(ticket_id: str, reason: str, urgency: str = "normal"
     Args:
         ticket_id: The ticket ID returned by create_ticket.
         reason: Specific escalation reason (e.g. "pricing_inquiry", "refund_request", "legal_threat").
-        urgency: 'normal' or 'urgent'.
+        urgency: Use 'normal' or 'urgent'.
 
     Returns:
         Escalation confirmation with reference ID.
