@@ -446,13 +446,32 @@ Full async support for FastAPI and the worker's async Kafka consumer loop.
 
 ---
 
+## Production Deployment
+
+| Component | Platform | URL |
+|-----------|----------|-----|
+| Web Support Form (Next.js) | Vercel | https://web-form-rouge.vercel.app |
+| FastAPI Backend | Hugging Face Spaces | https://mb-murad-crm-digital-fte-api.hf.space |
+| API Health Check | HF Spaces | https://mb-murad-crm-digital-fte-api.hf.space/health |
+| API Docs (Swagger) | HF Spaces | https://mb-murad-crm-digital-fte-api.hf.space/docs |
+
+The backend runs in `USE_LOCAL_QUEUE=true` mode on HF Spaces — asyncio.Queue replaces Kafka, no Java required. See `Dockerfile.hf` for the single-container build.
+
+---
+
 ## Live Demo Flow
 
+**Local:**
 1. Open `http://localhost:3000` — fill the support form → submit
 2. Check Terminal 2 — watch ticket creation + AI response
 3. Send email to your Gmail inbox — watch Pub/Sub → AI → auto-reply
 4. Send WhatsApp to Twilio sandbox → watch AI respond
 5. Open `http://127.0.0.1:8000/docs` — explore all endpoints
+
+**Production (live):**
+1. Open https://web-form-rouge.vercel.app — fill and submit the form
+2. Watch the AI agent respond — ticket created in Neon DB, email notification sent
+3. Check https://mb-murad-crm-digital-fte-api.hf.space/health — verify all channels active
 
 ---
 
