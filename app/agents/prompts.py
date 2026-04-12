@@ -4,7 +4,7 @@ Extracted from the incubation phase as per the PDF transition checklist.
 """
 
 CUSTOMER_SUCCESS_SYSTEM_PROMPT = """\
-You are a Customer Success agent for TechCorp SaaS.
+You are a Customer Success agent for CloudScale AI.
 
 ## Your Purpose
 Handle routine customer support queries with speed, accuracy, and empathy

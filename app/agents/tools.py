@@ -13,6 +13,7 @@ import asyncio
 import logging
 from contextvars import ContextVar
 from dataclasses import dataclass, field
+from functools import lru_cache
 from typing import Optional
 
 from agents import function_tool
@@ -57,6 +58,26 @@ def get_processing_context() -> ProcessingContext:
 # Tool 1 — search_knowledge_base
 # ---------------------------------------------------------------------------
 
+@lru_cache(maxsize=1)
+def _get_embedding_model():
+    """Load sentence-transformers model once and cache it for the process lifetime."""
+    try:
+        import logging as _logging
+        import warnings
+        # Suppress BertModel checkpoint warnings — not actionable in production
+        warnings.filterwarnings("ignore", category=FutureWarning, module="sentence_transformers")
+        _logging.getLogger("sentence_transformers").setLevel(_logging.ERROR)
+        _logging.getLogger("transformers").setLevel(_logging.ERROR)
+
+        from sentence_transformers import SentenceTransformer
+        model = SentenceTransformer("all-MiniLM-L6-v2")
+        logger.info("Embedding model loaded: all-MiniLM-L6-v2 (%d dims)", model.get_embedding_dimension())
+        return model
+    except ImportError:
+        logger.warning("sentence-transformers not installed — KB search will fall back to ILIKE")
+        return None
+
+
 @function_tool
 async def search_knowledge_base(query: str, max_results: int = 5) -> str:
     """Search product documentation for relevant information.
@@ -74,19 +95,47 @@ async def search_knowledge_base(query: str, max_results: int = 5) -> str:
     """
     pool = await get_db_pool()
     async with pool.acquire() as conn:
-        # Primary: vector cosine similarity search (requires stored embeddings)
-        # Fallback: full-text ILIKE search when embeddings are absent
-        rows = await conn.fetch(
+        # Primary: cosine similarity using pgvector <=> operator
+        model = _get_embedding_model()
+        if model is not None:
+            vec = await asyncio.get_event_loop().run_in_executor(
+                None, lambda: model.encode(query, normalize_embeddings=True).tolist()
+            )
+            # Embed the vector literal directly — safe because it's ML-generated, not user input.
+            # asyncpg $1::vector parameter binding has a quirk with pooled Neon connections.
+            vec_literal = "[" + ",".join(f"{v:.8f}" for v in vec) + "]"
+            sql = f"""
+                SELECT title, content, category,
+                       1 - (embedding <=> '{vec_literal}'::vector) AS score
+                FROM knowledge_base
+                WHERE embedding IS NOT NULL
+                ORDER BY embedding <=> '{vec_literal}'::vector
+                LIMIT {int(max_results)}
             """
-            SELECT title, content, category
-            FROM knowledge_base
-            WHERE content ILIKE $1 OR title ILIKE $1
-            ORDER BY updated_at DESC
-            LIMIT $2
-            """,
-            f"%{query}%",
-            max_results,
-        )
+            rows = await conn.fetch(sql)
+            # Keep results above threshold (0.20) OR the single best match
+            # if it's reasonably close (>= 0.15) — prevents total misses on valid queries
+            filtered = [r for r in rows if r["score"] >= 0.20]
+            if not filtered and rows and rows[0]["score"] >= 0.15:
+                filtered = rows[:1]  # return best match rather than nothing
+            rows = filtered
+        else:
+            rows = []
+
+        # Fallback: keyword ILIKE search when embeddings unavailable or no results
+        if not rows:
+            logger.debug("Vector search returned no results — falling back to ILIKE for query: %s", query)
+            rows = await conn.fetch(
+                """
+                SELECT title, content, category, NULL::float AS score
+                FROM knowledge_base
+                WHERE content ILIKE $1 OR title ILIKE $1
+                ORDER BY updated_at DESC
+                LIMIT $2
+                """,
+                f"%{query}%",
+                max_results,
+            )
 
     if not rows:
         return (
@@ -94,7 +143,12 @@ async def search_knowledge_base(query: str, max_results: int = 5) -> str:
             "Consider escalating to human support if the customer needs further help."
         )
 
-    parts = [f"**{r['title']}** (category: {r['category'] or 'general'})\n{r['content'][:500]}" for r in rows]
+    parts = []
+    for r in rows:
+        score_label = f"  (relevance: {r['score']:.2f})" if r["score"] is not None else ""
+        parts.append(
+            f"**{r['title']}** (category: {r['category'] or 'general'}){score_label}\n{r['content'][:500]}"
+        )
     return "\n\n---\n\n".join(parts)
 
 
@@ -302,7 +356,33 @@ async def _dispatch(message: str, ctx: ProcessingContext) -> None:
                 ctx.gmail_thread_id,
             )
 
-        # web_form: response stored in DB; frontend polls /support/ticket/{id}
+        elif ctx.channel == "web_form" and ctx.customer_email:
+            # PDF Page 3: Web Form response method = "API response + Email"
+            # DB storage already done above in send_response(); send email notification now.
+            from app.channels.gmail_handler import GmailHandler
+            ticket_ref = ctx.ticket_id or "N/A"
+            subject = f"Your Support Request — Ticket #{ticket_ref}"
+            body = (
+                f"{message}\n\n"
+                f"---\n"
+                f"Ticket Reference: #{ticket_ref}\n"
+                f"You can check the status of your request at any time by visiting our support portal.\n\n"
+                f"CloudScale AI Customer Success Team"
+            )
+            handler = GmailHandler()
+            await asyncio.get_event_loop().run_in_executor(
+                None,
+                handler.send_reply,
+                ctx.customer_email,
+                subject,
+                body,
+                None,   # no thread_id for web form submissions
+            )
+            logger.info(
+                "Web form email notification sent | ticket=%s to=%s",
+                ticket_ref,
+                ctx.customer_email,
+            )
 
     except Exception as exc:
         logger.error("Channel dispatch failed [%s]: %s", ctx.channel, exc)

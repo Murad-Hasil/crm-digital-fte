@@ -322,10 +322,10 @@ export default function SupportForm({
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-600/30 ring-1 ring-violet-500/40 text-lg">
             🎧
           </span>
-          <h1 className="text-2xl font-bold text-white">Contact Support</h1>
+          <h1 className="text-2xl font-bold text-white">CloudScale AI Support</h1>
         </div>
         <p className="text-sm text-slate-400">
-          Our AI assistant will respond within 5 minutes.
+          CloudScale AI assistant will respond within 5 minutes.
         </p>
       </div>
 

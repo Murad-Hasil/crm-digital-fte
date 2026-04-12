@@ -13,6 +13,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.webhooks import router as webhook_router
+from app.channels.web_form_handler import router as web_form_router
 from app.core.kafka import kafka_producer
 from app.db.session import close_db_pool, init_db_pool
 
@@ -48,6 +49,7 @@ app.add_middleware(
 )
 
 app.include_router(webhook_router)
+app.include_router(web_form_router)
 
 
 @app.get("/health")

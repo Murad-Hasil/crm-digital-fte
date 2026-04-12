@@ -1,0 +1,209 @@
+# =============================================================================
+# CRM Digital FTE — Local Development Stack
+# CloudScale AI · Customer Success Agent
+#
+# Services:
+#   zookeeper   Apache ZooKeeper (Kafka dependency)
+#   kafka       Apache Kafka 3.7  (message broker)
+#   postgres    PostgreSQL 16 + pgvector  (primary DB)
+#   api         FastAPI  (webhook intake + health)
+#   worker      Kafka consumer + AI agent orchestrator
+#   metrics     P95 latency + escalation rate collector
+#
+# Usage:
+#   docker compose up --build          # start everything
+#   docker compose up api worker       # start without metrics
+#   docker compose logs -f worker      # tail worker logs
+#
+# Environment:
+#   Copy .env.example to .env and fill in GROQ_API_KEY, Twilio keys, etc.
+#   DATABASE_URL in .env is overridden below to point at the local postgres.
+# =============================================================================
+
+version: "3.9"
+
+# ---------------------------------------------------------------------------
+# Shared environment for all Python services
+# Values here override whatever is in .env for the same key.
+# ---------------------------------------------------------------------------
+x-python-env: &python-env
+  env_file: .env
+  environment:
+    # Override Neon URL → local postgres container
+    DATABASE_URL: postgresql://fte_user:fte_pass@postgres:5432/fte_db?sslmode=disable
+    # Override localhost Kafka → internal docker network broker
+    KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+    OPENAI_BASE_URL: https://api.groq.com/openai/v1
+    OPENAI_AGENTS_DISABLE_TRACING: "1"
+    LOG_LEVEL: INFO
+
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # ZooKeeper — required by Kafka for broker coordination
+  # ---------------------------------------------------------------------------
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.1
+    container_name: fte_zookeeper
+    restart: unless-stopped
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo ruok | nc localhost 2181 | grep imok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+      - zookeeper_log:/var/lib/zookeeper/log
+
+
+  # ---------------------------------------------------------------------------
+  # Kafka — message broker for all inbound ticket events
+  # Internal listener  : kafka:29092  (used by api / worker / metrics)
+  # External listener  : localhost:9092  (used by host-side tools / tests)
+  # ---------------------------------------------------------------------------
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: fte_kafka
+    restart: unless-stopped
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://localhost:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_LOG_RETENTION_HOURS: 168        # 7 days
+      KAFKA_MESSAGE_MAX_BYTES: 1048576      # 1 MB
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:29092", "--list"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL 16 + pgvector
+  # Auto-runs 001_initial_schema.sql on first start via initdb hook.
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: fte_postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: fte_db
+      POSTGRES_USER: fte_user
+      POSTGRES_PASSWORD: fte_pass
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Auto-apply schema on first container start
+      - ./database/migrations/001_initial_schema.sql:/docker-entrypoint-initdb.d/001_initial_schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fte_user -d fte_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+
+  # ---------------------------------------------------------------------------
+  # FastAPI — webhook intake (Email, WhatsApp, Web Form)
+  # Exposes port 8000 to host so ngrok / browser can reach it.
+  # ---------------------------------------------------------------------------
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fte_api
+    restart: unless-stopped
+    <<: *python-env
+    command: >
+      uvicorn app.api.main:app
+      --host 0.0.0.0
+      --port 8000
+      --workers 2
+      --access-log
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    volumes:
+      # Mount credentials at runtime (never baked into image)
+      - ./credentials:/app/credentials:ro
+      # Mount context + scripts for seed_kb.py access
+      - ./context:/app/context:ro
+      - ./scripts:/app/scripts:ro
+
+
+  # ---------------------------------------------------------------------------
+  # Worker — Kafka consumer + AI agent orchestrator
+  # Reads from fte.tickets.incoming, runs Groq agent, sends channel replies.
+  # ---------------------------------------------------------------------------
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fte_worker
+    restart: unless-stopped
+    <<: *python-env
+    command: python -m app.worker.message_processor
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ./credentials:/app/credentials:ro
+
+
+  # ---------------------------------------------------------------------------
+  # Metrics collector — P95 latency + escalation rate → agent_metrics table
+  # Runs on a 60-second loop (configurable via METRICS_INTERVAL_SECONDS).
+  # ---------------------------------------------------------------------------
+  metrics:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fte_metrics
+    restart: unless-stopped
+    <<: *python-env
+    command: python -m app.worker.metrics_collector
+    environment:
+      DATABASE_URL: postgresql://fte_user:fte_pass@postgres:5432/fte_db?sslmode=disable
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      METRICS_INTERVAL_SECONDS: "60"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+
+# ---------------------------------------------------------------------------
+# Named volumes — survive container restarts
+# ---------------------------------------------------------------------------
+volumes:
+  postgres_data:
+  kafka_data:
+  zookeeper_data:
+  zookeeper_log:

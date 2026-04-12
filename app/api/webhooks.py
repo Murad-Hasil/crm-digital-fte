@@ -1,28 +1,25 @@
 """
-Channel intake webhooks.
+Channel intake webhooks — Gmail and WhatsApp.
 
 Routes:
-  POST /webhooks/webform          — Web support form submission
-  GET  /support/ticket/{id}       — Ticket status check
   POST /webhooks/gmail            — Gmail Pub/Sub push notification
-  POST /webhooks/whatsapp         — Twilio WhatsApp webhook
+  POST /webhooks/whatsapp         — Twilio WhatsApp inbound message
   POST /webhooks/whatsapp/status  — Twilio delivery status callback
+
+Web Form routes live in app/channels/web_form_handler.py.
 """
 
 import base64
 import json
 import logging
-import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from fastapi.responses import Response
 
 from app.api.models import (
     GmailPushNotification,
     NormalizedTicketEvent,
-    WebFormResponse,
-    WebFormSubmission,
     WhatsAppWebhookForm,
 )
 from app.core.kafka import kafka_producer, TOPIC_TICKETS_INCOMING
@@ -32,7 +29,7 @@ router = APIRouter(tags=["webhooks"])
 
 
 # ---------------------------------------------------------------------------
-# Helpers
+# Internal helper
 # ---------------------------------------------------------------------------
 
 async def _publish(event: NormalizedTicketEvent, background_tasks: BackgroundTasks) -> None:
@@ -42,47 +39,6 @@ async def _publish(event: NormalizedTicketEvent, background_tasks: BackgroundTas
         kafka_producer.publish_ticket,
         event.model_dump(),
     )
-
-
-# ---------------------------------------------------------------------------
-# Web Form
-# ---------------------------------------------------------------------------
-
-@router.post("/webhooks/webform", response_model=WebFormResponse)
-async def submit_web_form(
-    submission: WebFormSubmission,
-    background_tasks: BackgroundTasks,
-) -> WebFormResponse:
-    """
-    Accept a Web Support Form submission.
-    1. Validate via Pydantic.
-    2. Generate ticket_id.
-    3. Publish normalized event to Kafka.
-    4. Return confirmation immediately.
-    """
-    ticket_id = str(uuid.uuid4())
-    event = submission.to_ticket_event(ticket_id)
-    await _publish(event, background_tasks)
-
-    logger.info("WebForm ticket queued: ticket_id=%s email=%s", ticket_id, submission.email)
-    return WebFormResponse(
-        ticket_id=ticket_id,
-        message="Thank you for contacting us! Our AI assistant will respond shortly.",
-        estimated_response_time="Usually within 5 minutes",
-    )
-
-
-@router.get("/support/ticket/{ticket_id}")
-async def get_ticket_status(ticket_id: str) -> dict:
-    """
-    Return the current status of a ticket.
-    Full DB lookup wired in Step 7 (agent worker); returns pending state for now.
-    """
-    return {
-        "ticket_id": ticket_id,
-        "status": "processing",
-        "created_at": datetime.now(timezone.utc).isoformat(),
-    }
 
 
 # ---------------------------------------------------------------------------
@@ -195,7 +151,6 @@ async def whatsapp_webhook(
 async def whatsapp_status_webhook(request: Request) -> dict:
     """
     Receive Twilio delivery status callbacks (sent, delivered, failed).
-    DB update wired in Step 7.
     """
     form = dict(await request.form())
     message_sid = form.get("MessageSid", "")

@@ -3,14 +3,14 @@ Unified Message Processor — Kafka consumer + AI agent orchestrator.
 
 Flow per message:
   1. Deserialize NormalizedTicketEvent from fte.tickets.incoming
-  2. Resolve or create Customer record
-  3. Get or create Conversation
-  4. Store inbound Message
-  5. Pre-agent guardrail check  (pricing / refund / legal / sentiment)
-  6. Load conversation history for agent
+  2. Resolve or create Customer record        → app.db.queries
+  3. Get or create Conversation               → app.db.queries
+  4. Store inbound Message                    → app.db.queries
+  5. Pre-agent guardrail check (pricing / refund / legal / sentiment)
+  6. Load conversation history for agent      → app.db.queries
   7. Set ProcessingContext (contextvars)
   8. Run customer_success_agent via Runner
-  9. Record latency metric
+  9. Record latency metric                    → app.db.queries
 """
 
 import asyncio
@@ -26,6 +26,15 @@ from aiokafka import AIOKafkaConsumer
 
 from app.agents.customer_success_agent import customer_success_agent, init_agent
 from app.agents.tools import ProcessingContext, set_processing_context
+from app.db.queries import (
+    create_escalation_ticket,
+    get_or_create_conversation,
+    load_history,
+    record_latency_metric,
+    resolve_customer,
+    store_inbound_message,
+    update_conversation_escalated,
+)
 from app.db.session import get_db_pool, init_db_pool
 
 try:
@@ -71,94 +80,6 @@ def _check_guardrails(content: str) -> tuple[bool, str]:
 
 
 # ---------------------------------------------------------------------------
-# Customer & Conversation resolution
-# ---------------------------------------------------------------------------
-
-async def _resolve_customer(conn, message: dict) -> str:
-    """Return existing customer_id or create a new customer record."""
-    email = message.get("customer_email")
-    phone = message.get("customer_phone")
-
-    if email:
-        row = await conn.fetchrow("SELECT id FROM public.customers WHERE email = $1", email)
-        if row:
-            return str(row["id"])
-        cid = await conn.fetchval(
-            "INSERT INTO public.customers (email, name) VALUES ($1, $2) RETURNING id",
-            email,
-            message.get("customer_name", ""),
-        )
-        return str(cid)
-
-    if phone:
-        row = await conn.fetchrow(
-            """
-            SELECT customer_id FROM public.customer_identifiers
-            WHERE identifier_type = 'whatsapp' AND identifier_value = $1
-            """,
-            phone,
-        )
-        if row:
-            return str(row["customer_id"])
-        cid = await conn.fetchval(
-            "INSERT INTO public.customers (phone) VALUES ($1) RETURNING id", phone
-        )
-        await conn.execute(
-            """
-            INSERT INTO public.customer_identifiers (customer_id, identifier_type, identifier_value)
-            VALUES ($1, 'whatsapp', $2)
-            """,
-            cid,
-            phone,
-        )
-        return str(cid)
-
-    raise ValueError("Cannot resolve customer: no email or phone in message.")
-
-
-async def _get_or_create_conversation(conn, customer_id: str, channel: str) -> str:
-    """Return an active conversation (last 24 h) or create a new one."""
-    row = await conn.fetchrow(
-        """
-        SELECT id FROM public.conversations
-        WHERE customer_id = $1
-          AND status = 'active'
-          AND started_at > NOW() - INTERVAL '24 hours'
-        ORDER BY started_at DESC
-        LIMIT 1
-        """,
-        customer_id,
-    )
-    if row:
-        return str(row["id"])
-
-    conv_id = await conn.fetchval(
-        """
-        INSERT INTO public.conversations (customer_id, initial_channel, status)
-        VALUES ($1, $2, 'active')
-        RETURNING id
-        """,
-        customer_id,
-        channel,
-    )
-    return str(conv_id)
-
-
-async def _load_history(conn, conversation_id: str) -> list[dict]:
-    """Load messages for the current conversation as OpenAI-style message dicts."""
-    rows = await conn.fetch(
-        """
-        SELECT role, content FROM public.messages
-        WHERE conversation_id = $1
-        ORDER BY created_at ASC
-        """,
-        conversation_id,
-    )
-    role_map = {"agent": "assistant", "customer": "user"}
-    return [{"role": role_map.get(r["role"], r["role"]), "content": r["content"]} for r in rows]
-
-
-# ---------------------------------------------------------------------------
 # Core message handler
 # ---------------------------------------------------------------------------
 
@@ -172,24 +93,20 @@ async def process_message(raw_message: dict) -> None:
     pool = await get_db_pool()
     async with pool.acquire() as conn:
         await conn.execute("SET search_path TO public")
+
         # ── 1. Resolve customer ──────────────────────────────────────────
         try:
-            customer_id = await _resolve_customer(conn, raw_message)
+            customer_id = await resolve_customer(conn, raw_message)
         except ValueError as exc:
             logger.error("Customer resolution failed: %s", exc)
             return
 
         # ── 2. Get / create conversation ─────────────────────────────────
-        conversation_id = await _get_or_create_conversation(conn, customer_id, channel)
+        conversation_id = await get_or_create_conversation(conn, customer_id, channel)
 
         # ── 3. Store inbound message ─────────────────────────────────────
-        await conn.execute(
-            """
-            INSERT INTO public.messages
-                (conversation_id, channel, direction, role, content,
-                 channel_message_id, delivery_status)
-            VALUES ($1, $2, 'inbound', 'user', $3, $4, 'delivered')
-            """,
+        await store_inbound_message(
+            conn,
             conversation_id,
             channel,
             content,
@@ -200,26 +117,13 @@ async def process_message(raw_message: dict) -> None:
         should_escalate, reason = _check_guardrails(content)
         if should_escalate:
             logger.info("Guardrail triggered: channel=%s reason=%s", channel, reason)
-            ticket_id = await conn.fetchval(
-                """
-                INSERT INTO public.tickets
-                    (conversation_id, customer_id, source_channel, category, priority, status)
-                VALUES ($1, $2, $3, 'escalated', 'high', 'escalated')
-                RETURNING id
-                """,
-                conversation_id,
-                customer_id,
-                channel,
-            )
-            await conn.execute(
-                "UPDATE public.conversations SET status = 'escalated', escalated_to = 'human_agent' WHERE id = $1",
-                conversation_id,
-            )
+            ticket_id = await create_escalation_ticket(conn, conversation_id, customer_id, channel)
+            await update_conversation_escalated(conn, conversation_id)
             logger.info("Auto-escalated ticket %s | reason=%s", ticket_id, reason)
             return
 
         # ── 5. Load conversation history for agent ───────────────────────
-        history = await _load_history(conn, conversation_id)
+        history = await load_history(conn, conversation_id)
 
     # ── 6. Set processing context (contextvars) ──────────────────────────
     ctx = ProcessingContext(
@@ -248,14 +152,7 @@ async def process_message(raw_message: dict) -> None:
     latency_ms = int((datetime.now(timezone.utc) - start_time).total_seconds() * 1000)
     pool = await get_db_pool()
     async with pool.acquire() as conn:
-        await conn.execute(
-            """
-            INSERT INTO public.agent_metrics (metric_name, metric_value, channel)
-            VALUES ('response_latency_ms', $1, $2)
-            """,
-            latency_ms,
-            channel,
-        )
+        await record_latency_metric(conn, latency_ms, channel)
     logger.info("Message processed | channel=%s latency=%dms", channel, latency_ms)
 
 

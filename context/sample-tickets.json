@@ -1,0 +1,552 @@
+[
+  {
+    "id": "TKT-001",
+    "channel": "email",
+    "category": "billing",
+    "sentiment_score": 0.2,
+    "subject": "Unexpected charge of $847 on my invoice",
+    "message": "Hi, I just got my invoice and there's a charge of $847 for 'gpu.h100.1' instances. I never launched an H100! This must be a billing error. I only use A10G instances for my hobby project. Please refund this immediately.",
+    "customer_tier": "starter",
+    "expected_action": "escalate"
+  },
+  {
+    "id": "TKT-002",
+    "channel": "whatsapp",
+    "category": "technical",
+    "sentiment_score": 0.6,
+    "subject": "Instance stuck in PENDING state",
+    "message": "Hey, my instance inst_abc123 has been in PENDING state for 20 minutes. Usually it starts in under a minute. Is there a capacity issue?",
+    "customer_tier": "growth",
+    "expected_action": "resolve"
+  },
+  {
+    "id": "TKT-003",
+    "channel": "web_form",
+    "category": "technical",
+    "sentiment_score": 0.7,
+    "subject": "How to mount persistent volume?",
+    "message": "I created a volume with `cs volume create` but I'm not sure how to attach it to my running instance. Can you walk me through the steps?",
+    "customer_tier": "starter",
+    "expected_action": "resolve"
+  },
+  {
+    "id": "TKT-004",
+    "channel": "email",
+    "category": "angry",
+    "sentiment_score": 0.05,
+    "subject": "YOUR PLATFORM DELETED MY DATA",
+    "message": "This is absolutely unacceptable. I woke up this morning and ALL my data in bucket 'ml-experiments' is GONE. I had 3 months of training checkpoints there. Your team better explain this immediately or I'm filing a chargeback and posting about this on HackerNews. This is a DISASTER.",
+    "customer_tier": "business",
+    "expected_action": "escalate"
+  },
+  {
+    "id": "TKT-005",
+    "channel": "web_form",
+    "category": "general",
+    "sentiment_score": 0.8,
+    "subject": "What regions are available?",
+    "message": "Hi! Quick question — what regions do you currently support? I need my compute to be in the EU for GDPR compliance.",
+    "customer_tier": "growth",
+    "expected_action": "resolve"
+  },
+  {
+    "id": "TKT-006",
+    "channel": "email",
+    "category": "billing",
+    "sentiment_score": 0.4,
+    "subject": "Requesting refund for unused reserved instance",
+    "message": "I purchased a 1-year reserved instance for gpu.a100.1 two weeks ago but our project got cancelled internally. The instance hasn't been used at all. I'd like to request a full or partial refund for the remaining 50 weeks.",
+    "customer_tier": "business",
+    "expected_action": "escalate"
+  },
+  {
+    "id": "TKT-007",
+    "channel": "whatsapp",
+    "category": "technical",
+    "sentiment_score": 0.65,
+    "subject": "ERR_QUOTA when launching instances",
+    "message": "Getting ERR_QUOTA when trying to launch 4x A100 instances. I thought my account had a 4-GPU quota. Is there a way to check my current limits?",
+    "customer_tier": "growth",
+    "expected_action": "resolve"
+  },
+  {
+    "id": "TKT-008",
+    "channel": "web_form",
+    "category": "technical",
+    "sentiment_score": 0.75,
+    "subject": "Storage API AccessDenied error",
+    "message": "I'm getting an AccessDenied error when trying to upload objects to my bucket. I checked the bucket name and it's correct. My API key has admin permissions. Any idea what could be wrong?",
+    "customer_tier": "starter",
+    "expected_action": "resolve"
+  },
+  {
+    "id": "TKT-009",
+    "channel": "email",
+    "category": "pricing",
+    "sentiment_score": 0.5,
+    "subject": "Enterprise pricing inquiry",
+    "message": "Hello, we're a Series A startup expecting to spend around $50K/month on GPU compute. I'd like to understand what enterprise pricing and SLAs are available at that volume. Can someone from sales reach out?",
+    "customer_tier": "growth",
+    "expected_action": "escalate"
+  },
+  {
+    "id": "TKT-010",
+    "channel": "whatsapp",
+    "category": "angry",
+    "sentiment_score": 0.1,
+    "subject": "3 hours of downtime — completely unacceptable",
+    "message": "My production inference endpoint has been down for 3 hours. I have paying customers who are affected. This is catastrophic for my business. I'm on a Business plan and I expect 4-hour response SLA — I'm at hour 3 and nobody has replied. Escalate this NOW.",
+    "customer_tier": "business",
+    "expected_action": "escalate"
+  },
+  {
+    "id": "TKT-011",
+    "channel": "web_form",
+    "category": "technical",
+    "sentiment_score": 0.7,
+    "subject": "How does spot instance preemption work?",
+    "message": "I'm planning to use spot instances for a 48-hour training run. How much warning do I get before preemption? Is 2 minutes enough to save a checkpoint?",
+    "customer_tier": "starter",
+    "expected_action": "resolve"
+  },
+  {
+    "id": "TKT-012",
+    "channel": "email",
+    "category": "technical",
+    "sentiment_score": 0.6,
+    "subject": "GPU utilization dropping to 0% mid-training",
+    "message": "My training job on a gpu.h100.1 instance is showing GPU utilization dropping to 0% every 30 minutes or so for about 2-3 minutes then recovering. This is affecting my training speed significantly. Logs show no errors. Could this be a hardware issue?",
+    "customer_tier": "business",
+    "expected_action": "resolve"
+  },
+  {
+    "id": "TKT-013",
+    "channel": "whatsapp",
+    "category": "general",
+    "sentiment_score": 0.8,
+    "subject": "Do you support PyTorch 2.3?",
+    "message": "Hey! Quick question — do you have a pre-built image for PyTorch 2.3 with CUDA 12.1? Don't want to install everything from scratch.",
+    "customer_tier": "starter",
+    "expected_action": "resolve"
+  },
+  {
+    "id": "TKT-014",
+    "channel": "email",
+    "category": "billing",
+    "sentiment_score": 0.45,
+    "subject": "Invoice discrepancy — charged for stopped instance",
+    "message": "According to my understanding, stopped instances don't incur compute charges. But my invoice shows hourly charges for an instance that I stopped 5 days ago. Is this a bug or am I misunderstanding the billing model?",
+    "customer_tier": "growth",
+    "expected_action": "resolve"
+  },
+  {
+    "id": "TKT-015",
+    "channel": "web_form",
+    "category": "technical",
+    "sentiment_score": 0.72,
+    "subject": "Can I resize an instance without losing data?",
+    "message": "I started with a cpu.small instance but now I need more RAM. Can I upgrade to cpu.large while preserving my data and configuration? Or do I need to take a snapshot and launch a new instance?",
+    "customer_tier": "starter",
+    "expected_action": "resolve"
+  },
+  {
+    "id": "TKT-016",
+    "channel": "email",
+    "category": "angry",
+    "sentiment_score": 0.15,
+    "subject": "Account locked — I can't access anything",
+    "message": "My account got locked without any warning or email explanation. I have active training runs and critical storage. This is costing me thousands of dollars every hour. I demand an immediate explanation and account restoration. If this isn't fixed in 1 hour I'm calling my bank.",
+    "customer_tier": "business",
+    "expected_action": "escalate"
+  },
+  {
+    "id": "TKT-017",
+    "channel": "whatsapp",
+    "category": "technical",
+    "sentiment_score": 0.68,
+    "subject": "Auto-scaling group not scaling up",
+    "message": "My ASG is configured to scale up when GPU utilization > 80% for 60 seconds, but it's not launching new instances even though utilization has been at 95% for 10 minutes. What am I missing?",
+    "customer_tier": "growth",
+    "expected_action": "resolve"
+  },
+  {
+    "id": "TKT-018",
+    "channel": "web_form",
+    "category": "general",
+    "sentiment_score": 0.85,
+    "subject": "Academic grant program details",
+    "message": "I'm a PhD student at MIT working on climate modeling with ML. I saw you have an academic grant program. Can you tell me more about eligibility and how to apply?",
+    "customer_tier": "starter",
+    "expected_action": "resolve"
+  },
+  {
+    "id": "TKT-019",
+    "channel": "email",
+    "category": "technical",
+    "sentiment_score": 0.55,
+    "subject": "VPC peering setup — connection timing out",
+    "message": "I've set up VPC peering between my CloudScale VPC and our AWS VPC following the docs. The peering connection shows as 'active' but all TCP connections from AWS to CloudScale instances time out. Our security groups on the AWS side are open. Any troubleshooting steps?",
+    "customer_tier": "enterprise",
+    "expected_action": "resolve"
+  },
+  {
+    "id": "TKT-020",
+    "channel": "whatsapp",
+    "category": "billing",
+    "sentiment_score": 0.3,
+    "subject": "Double charged this month",
+    "message": "I see two identical line items on my invoice this month, both for $312.40, on the same date. Looks like I was double charged. Can someone fix this quickly?",
+    "customer_tier": "growth",
+    "expected_action": "escalate"
+  },
+  {
+    "id": "TKT-021",
+    "channel": "web_form",
+    "category": "technical",
+    "sentiment_score": 0.78,
+    "subject": "How to use S3-compatible API with boto3?",
+    "message": "I want to use boto3 to interact with CloudScale Storage API. What endpoint URL should I use and how do I configure the client?",
+    "customer_tier": "starter",
+    "expected_action": "resolve"
+  },
+  {
+    "id": "TKT-022",
+    "channel": "email",
+    "category": "general",
+    "sentiment_score": 0.82,
+    "subject": "Comparing H100 vs A100 for LLM fine-tuning",
+    "message": "We're planning to fine-tune a 70B parameter LLM. Can you help us understand the trade-offs between using H100 vs A100 instances in terms of training speed and cost efficiency?",
+    "customer_tier": "business",
+    "expected_action": "resolve"
+  },
+  {
+    "id": "TKT-023",
+    "channel": "whatsapp",
+    "category": "angry",
+    "sentiment_score": 0.08,
+    "subject": "Slow support — been waiting 6 hours",
+    "message": "I submitted a critical ticket 6 hours ago about my inference endpoint being down. I'm on Business plan with a 4-hour SLA. This is a BREACH OF CONTRACT. I need a manager to contact me immediately.",
+    "customer_tier": "business",
+    "expected_action": "escalate"
+  },
+  {
+    "id": "TKT-024",
+    "channel": "email",
+    "category": "technical",
+    "sentiment_score": 0.62,
+    "subject": "Cannot SSH into newly launched instance",
+    "message": "I launched a new Ubuntu instance with my SSH key attached but I can't SSH in. Getting 'Connection refused'. The firewall rule for port 22 is set up correctly. The instance shows as RUNNING.",
+    "customer_tier": "starter",
+    "expected_action": "resolve"
+  },
+  {
+    "id": "TKT-025",
+    "channel": "web_form",
+    "category": "billing",
+    "sentiment_score": 0.5,
+    "subject": "How to set spend limits on team accounts?",
+    "message": "We have a team of 8 people sharing a CloudScale account. Is there a way to set per-user or per-project spend limits so we don't get surprised at the end of the month?",
+    "customer_tier": "growth",
+    "expected_action": "resolve"
+  },
+  {
+    "id": "TKT-026",
+    "channel": "email",
+    "category": "technical",
+    "sentiment_score": 0.7,
+    "subject": "Dataset versioning — how to roll back?",
+    "message": "I accidentally overwrote an important dataset in my bucket. I have versioning enabled but I'm not sure how to restore the previous version. Can you walk me through the rollback command?",
+    "customer_tier": "growth",
+    "expected_action": "resolve"
+  },
+  {
+    "id": "TKT-027",
+    "channel": "whatsapp",
+    "category": "general",
+    "sentiment_score": 0.75,
+    "subject": "Difference between stop and terminate?",
+    "message": "Can you explain the difference between stopping and terminating an instance? I don't want to lose my data accidentally.",
+    "customer_tier": "starter",
+    "expected_action": "resolve"
+  },
+  {
+    "id": "TKT-028",
+    "channel": "web_form",
+    "category": "technical",
+    "sentiment_score": 0.6,
+    "subject": "Multi-node training setup with NVLink",
+    "message": "We're trying to set up an 8x H100 multi-node training job with NCCL. What networking configuration do you recommend for maximum inter-node bandwidth? Are your H100 nodes NVLink-connected?",
+    "customer_tier": "enterprise",
+    "expected_action": "resolve"
+  },
+  {
+    "id": "TKT-029",
+    "channel": "email",
+    "category": "angry",
+    "sentiment_score": 0.12,
+    "subject": "Billed $4,200 for something I didn't use",
+    "message": "I just received a bill for $4,200 for gpu.h100.8 instances. I NEVER launched an H100x8 cluster. Either my account was compromised or this is a fraudulent charge. This needs to be investigated and reversed IMMEDIATELY. I am disputing this with my credit card company right now.",
+    "customer_tier": "starter",
+    "expected_action": "escalate"
+  },
+  {
+    "id": "TKT-030",
+    "channel": "whatsapp",
+    "category": "technical",
+    "sentiment_score": 0.73,
+    "subject": "Inference Gateway cold start too slow",
+    "message": "My inference endpoint is taking 8-10 seconds to respond on the first request after idle. I saw the docs mention warm pool. How do I enable it?",
+    "customer_tier": "growth",
+    "expected_action": "resolve"
+  },
+  {
+    "id": "TKT-031",
+    "channel": "email",
+    "category": "general",
+    "sentiment_score": 0.88,
+    "subject": "Requesting SOC 2 report for vendor assessment",
+    "message": "Our security team requires a SOC 2 Type II report as part of our vendor onboarding process. Can you provide a copy or point me to where I can download it?",
+    "customer_tier": "enterprise",
+    "expected_action": "resolve"
+  },
+  {
+    "id": "TKT-032",
+    "channel": "web_form",
+    "category": "technical",
+    "sentiment_score": 0.65,
+    "subject": "Custom Docker image not starting",
+    "message": "I pushed my custom Docker image to your registry but when I try to launch an instance with it, it fails immediately with no error message shown in the console. How do I view the startup logs?",
+    "customer_tier": "growth",
+    "expected_action": "resolve"
+  },
+  {
+    "id": "TKT-033",
+    "channel": "whatsapp",
+    "category": "billing",
+    "sentiment_score": 0.42,
+    "subject": "When does my free trial credit expire?",
+    "message": "I signed up last week and got $50 free credit. When does it expire? I haven't started my project yet and don't want to waste it.",
+    "customer_tier": "starter",
+    "expected_action": "resolve"
+  },
+  {
+    "id": "TKT-034",
+    "channel": "email",
+    "category": "technical",
+    "sentiment_score": 0.58,
+    "subject": "High latency from EU to US-East region",
+    "message": "Our users are in Europe but our data has to be in US-East for compliance reasons. We're seeing 120ms latency on inference requests. Is there a way to cache responses at EU edge nodes while keeping the model in US-East?",
+    "customer_tier": "business",
+    "expected_action": "resolve"
+  },
+  {
+    "id": "TKT-035",
+    "channel": "web_form",
+    "category": "general",
+    "sentiment_score": 0.79,
+    "subject": "Is there a Discord community?",
+    "message": "Do you have a Discord server or community forum where I can ask questions and connect with other CloudScale users?",
+    "customer_tier": "starter",
+    "expected_action": "resolve"
+  },
+  {
+    "id": "TKT-036",
+    "channel": "email",
+    "category": "angry",
+    "sentiment_score": 0.18,
+    "subject": "Downgraded my plan without permission",
+    "message": "I was on the Business plan and this morning I found my account is on the Starter plan. I can no longer access WhatsApp support or my dedicated Slack channel. Who authorized this downgrade? This is completely unacceptable and I expect an immediate explanation and restoration.",
+    "customer_tier": "business",
+    "expected_action": "escalate"
+  },
+  {
+    "id": "TKT-037",
+    "channel": "whatsapp",
+    "category": "technical",
+    "sentiment_score": 0.67,
+    "subject": "Checkpoint save speed is slow",
+    "message": "Saving a 70GB model checkpoint to my CloudScale storage volume takes about 8 minutes. Is that expected or is there something I can do to speed it up?",
+    "customer_tier": "growth",
+    "expected_action": "resolve"
+  },
+  {
+    "id": "TKT-038",
+    "channel": "web_form",
+    "category": "pricing",
+    "sentiment_score": 0.55,
+    "subject": "Reserved instance pricing for A100x4",
+    "message": "What is the 1-year reserved pricing for the gpu.a100.4 SKU? The pricing page shows on-demand rates but I can't find the reserved rates.",
+    "customer_tier": "business",
+    "expected_action": "escalate"
+  },
+  {
+    "id": "TKT-039",
+    "channel": "email",
+    "category": "technical",
+    "sentiment_score": 0.7,
+    "subject": "Python SDK not returning instance IP",
+    "message": "When I launch an instance with the Python SDK, the `instance.ip` field is null even after the instance shows RUNNING state. I need the IP to SSH in. Is there a delay or am I using the SDK wrong?",
+    "customer_tier": "starter",
+    "expected_action": "resolve"
+  },
+  {
+    "id": "TKT-040",
+    "channel": "whatsapp",
+    "category": "general",
+    "sentiment_score": 0.83,
+    "subject": "Training on multiple GPUs — beginner question",
+    "message": "I'm new to multi-GPU training. If I launch a gpu.a100.4 instance, can I use all 4 GPUs with PyTorch DDP? Any starter guide or example?",
+    "customer_tier": "starter",
+    "expected_action": "resolve"
+  },
+  {
+    "id": "TKT-041",
+    "channel": "email",
+    "category": "billing",
+    "sentiment_score": 0.35,
+    "subject": "Egress charges way higher than expected",
+    "message": "My storage egress this month was $340, which is 5x what I expected. I use the CDN. I thought CDN egress was cheaper at $0.008/GB. What's driving this cost up? I need a detailed breakdown.",
+    "customer_tier": "growth",
+    "expected_action": "resolve"
+  },
+  {
+    "id": "TKT-042",
+    "channel": "web_form",
+    "category": "technical",
+    "sentiment_score": 0.64,
+    "subject": "Observability Suite — custom metrics not showing up",
+    "message": "I'm emitting Prometheus metrics from my application on port 9090. I've configured the scrape endpoint in the Observability Suite settings but my custom metrics aren't appearing in the dashboard. Standard system metrics are showing fine.",
+    "customer_tier": "business",
+    "expected_action": "resolve"
+  },
+  {
+    "id": "TKT-043",
+    "channel": "email",
+    "category": "angry",
+    "sentiment_score": 0.07,
+    "subject": "Lost a $20,000 contract because of your downtime",
+    "message": "Your platform had a 4-hour outage last Tuesday. My demo with a major client failed because of it. This directly caused us to lose a $20,000 contract. I expect significant compensation beyond the measly SLA credits. I want to speak with your CEO or VP of Engineering today.",
+    "customer_tier": "enterprise",
+    "expected_action": "escalate"
+  },
+  {
+    "id": "TKT-044",
+    "channel": "whatsapp",
+    "category": "technical",
+    "sentiment_score": 0.72,
+    "subject": "How to enable auto-stop for idle instances?",
+    "message": "I keep forgetting to stop dev instances and getting big bills. I saw there's an auto-stop feature. How do I set it up so instances stop after being idle for 2 hours?",
+    "customer_tier": "starter",
+    "expected_action": "resolve"
+  },
+  {
+    "id": "TKT-045",
+    "channel": "web_form",
+    "category": "general",
+    "sentiment_score": 0.8,
+    "subject": "GDPR data deletion request",
+    "message": "I'm shutting down my account and need to ensure all my personal data is deleted per GDPR Article 17. Can you confirm the process and timeline for data deletion?",
+    "customer_tier": "growth",
+    "expected_action": "resolve"
+  },
+  {
+    "id": "TKT-046",
+    "channel": "email",
+    "category": "technical",
+    "sentiment_score": 0.58,
+    "subject": "Presigned URL expiring too early",
+    "message": "I'm generating presigned URLs for my bucket objects with a 7-day expiry, but clients are reporting the URLs expire after only 1 hour. I'm using the boto3 approach from your docs. What could be causing this?",
+    "customer_tier": "growth",
+    "expected_action": "resolve"
+  },
+  {
+    "id": "TKT-047",
+    "channel": "whatsapp",
+    "category": "billing",
+    "sentiment_score": 0.48,
+    "subject": "Can I switch from monthly to annual billing?",
+    "message": "I've been on monthly billing since I signed up. If I switch to annual billing now, do I get the discount retroactively or only going forward?",
+    "customer_tier": "growth",
+    "expected_action": "resolve"
+  },
+  {
+    "id": "TKT-048",
+    "channel": "web_form",
+    "category": "technical",
+    "sentiment_score": 0.76,
+    "subject": "CLI install on Apple Silicon",
+    "message": "I'm trying to install the CloudScale CLI on my M3 MacBook but getting an 'architecture mismatch' error. Is there a native ARM64 build available?",
+    "customer_tier": "starter",
+    "expected_action": "resolve"
+  },
+  {
+    "id": "TKT-049",
+    "channel": "email",
+    "category": "angry",
+    "sentiment_score": 0.22,
+    "subject": "Support team is useless — no real answers",
+    "message": "I've been going back and forth with your support team for 5 days about a billing issue. Every reply is just a copy-paste template that doesn't address my actual question. I'm fed up. Please escalate me to a senior engineer or billing specialist who can actually help.",
+    "customer_tier": "business",
+    "expected_action": "escalate"
+  },
+  {
+    "id": "TKT-050",
+    "channel": "web_form",
+    "category": "general",
+    "sentiment_score": 0.88,
+    "subject": "Congratulations on the Series B!",
+    "message": "Hi CloudScale team — just wanted to say congratulations on your Series B funding! I've been a customer for 2 years and the platform keeps getting better. Keep it up!",
+    "customer_tier": "business",
+    "expected_action": "resolve"
+  },
+  {
+    "id": "TKT-051",
+    "channel": "email",
+    "category": "technical",
+    "sentiment_score": 0.61,
+    "subject": "NCCL timeout during distributed training",
+    "message": "Getting NCCL timeout errors when training across 2 nodes, each with 4x A100 GPUs. Training works fine on a single node. The error is: 'NCCL error: unhandled system error, NCCL version 2.18'. Firewall rules allow all traffic between the instances.",
+    "customer_tier": "enterprise",
+    "expected_action": "resolve"
+  },
+  {
+    "id": "TKT-052",
+    "channel": "whatsapp",
+    "category": "pricing",
+    "sentiment_score": 0.53,
+    "subject": "Startup discount program?",
+    "message": "We're a YC W25 startup. I heard you have a startup program with credits. How do we apply and what's included?",
+    "customer_tier": "starter",
+    "expected_action": "escalate"
+  },
+  {
+    "id": "TKT-053",
+    "channel": "web_form",
+    "category": "technical",
+    "sentiment_score": 0.69,
+    "subject": "Model Registry — push failing with auth error",
+    "message": "When I try to push a model checkpoint to the Model Registry using the CLI, I get an 'authentication failed' error even though my API key is set correctly. The same key works fine for Compute Engine. Is there a separate permission needed for the Model Registry?",
+    "customer_tier": "growth",
+    "expected_action": "resolve"
+  },
+  {
+    "id": "TKT-054",
+    "channel": "email",
+    "category": "billing",
+    "sentiment_score": 0.28,
+    "subject": "No receipt emails — I need them for accounting",
+    "message": "I've been a customer for 8 months and I've never received an invoice email. I have to manually log in every month to download them. Our accounting team is asking for email receipts for all historical invoices. Can you set this up and send me the last 8 months retroactively?",
+    "customer_tier": "growth",
+    "expected_action": "resolve"
+  },
+  {
+    "id": "TKT-055",
+    "channel": "whatsapp",
+    "category": "general",
+    "sentiment_score": 0.84,
+    "subject": "How long has CloudScale been around?",
+    "message": "Just curious — when was CloudScale AI founded? I'm considering you as a long-term infrastructure partner and want to understand how established you are.",
+    "customer_tier": "growth",
+    "expected_action": "resolve"
+  }
+]
