@@ -1,0 +1,27 @@
+name: Keep Backend Alive
+
+on:
+  schedule:
+    # Every 8 minutes — prevents HF Space from sleeping (sleeps after ~15 min)
+    - cron: "*/8 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    name: Ping /health
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping HF Space health endpoint
+        run: |
+          URL="https://mb-murad-crm-digital-fte-api.hf.space/health"
+          echo "Pinging $URL ..."
+
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 "$URL")
+          echo "HTTP Status: $HTTP_STATUS"
+
+          if [[ "$HTTP_STATUS" -ge 200 && "$HTTP_STATUS" -lt 400 ]]; then
+            echo "Backend is alive."
+          else
+            echo "WARNING: Unexpected status $HTTP_STATUS — backend may be down or starting up."
+            exit 1
+          fi
