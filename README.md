@@ -102,7 +102,17 @@ The AI agent has 5 tools registered via the OpenAI Agents SDK:
 - **Auto-escalate** on: pricing inquiries, refund requests, legal threats, profanity, explicit human request
 - **Email:** formal tone, up to 500 words, greeting + signature
 - **WhatsApp:** max 300 chars, conversational
-- **Web Form:** semi-formal, up to 300 words
+- **Web Form:** semi-formal, up to 300 words + email notification sent to customer
+
+### MCP Server (Incubation Phase)
+
+`mcp_server.py` exposes the same 5 tools as a Model Context Protocol server (Exercise 1.4).
+Run it with any MCP-compatible host (Claude Desktop, Cursor):
+
+```bash
+python mcp_server.py           # stdio transport (default)
+python mcp_server.py sse       # SSE transport
+```
 
 ---
 
@@ -124,7 +134,7 @@ Kafka → Worker → Groq AI Agent → Twilio send_message
 ### Web Form
 ```
 User submits form → Next.js → POST /webhooks/webform →
-Kafka → Worker → Groq AI Agent → ticket stored in DB
+Kafka → Worker → Groq AI Agent → ticket stored in DB + email notification sent
 ```
 
 ---
@@ -138,7 +148,7 @@ Kafka → Worker → Groq AI Agent → ticket stored in DB
 - `conversations` — per-channel conversation sessions
 - `messages` — individual messages with role tracking
 - `tickets` — support tickets with full lifecycle
-- `knowledge_base` — product docs with 1536-dim vector embeddings
+- `knowledge_base` — product docs with 384-dim vector embeddings (all-MiniLM-L6-v2, local)
 - `channel_configs` — per-channel settings
 - `agent_metrics` — response latency tracking
 
@@ -148,12 +158,11 @@ Kafka → Worker → Groq AI Agent → ticket stored in DB
 
 | Topic | Purpose |
 |-------|---------|
-| `fte.tickets.incoming` | Unified inbound queue (all channels) |
-| `fte.channels.email.inbound/outbound` | Email channel events |
-| `fte.channels.whatsapp.inbound/outbound` | WhatsApp channel events |
-| `fte.escalations` | Escalation events |
-| `fte.metrics` | Performance metrics |
-| `fte.dlq` | Dead letter queue |
+| `fte.tickets.incoming` | Unified inbound queue (all 3 channels publish here) |
+
+All channels (Gmail, WhatsApp, Web Form) normalize their payloads into a single
+`NormalizedTicketEvent` and publish to this topic. One consumer group
+(`fte-message-processor`) processes all messages.
 
 ---
 
@@ -163,36 +172,57 @@ Kafka → Worker → Groq AI Agent → ticket stored in DB
 CRM-Digital-FTE/
 ├── app/
 │   ├── agents/
-│   │   ├── customer_success_agent.py   # OpenAI Agents SDK agent
-│   │   ├── tools.py                    # @function_tool definitions
-│   │   ├── prompts.py                  # System prompts
-│   │   └── formatters.py              # Channel-specific formatting
+│   │   ├── customer_success_agent.py   # OpenAI Agents SDK agent definition
+│   │   ├── tools.py                    # 5 @function_tool definitions
+│   │   ├── prompts.py                  # System prompts (CloudScale AI)
+│   │   └── formatters.py              # Channel-specific response formatting
 │   ├── api/
-│   │   ├── main.py                    # FastAPI app + lifespan
-│   │   ├── webhooks.py                # All channel webhooks
-│   │   └── models.py                  # Pydantic models
+│   │   ├── main.py                    # FastAPI app + lifespan hooks
+│   │   ├── webhooks.py                # Gmail + WhatsApp webhook handlers
+│   │   └── models.py                  # Pydantic models + NormalizedTicketEvent
 │   ├── channels/
 │   │   ├── gmail_handler.py           # Gmail API send/receive
-│   │   └── whatsapp_handler.py        # Twilio WhatsApp
+│   │   ├── whatsapp_handler.py        # Twilio WhatsApp send/receive
+│   │   └── web_form_handler.py        # Web Form API routes
 │   ├── core/
 │   │   ├── ai_client.py               # Groq client setup
 │   │   ├── config.py                  # App configuration
 │   │   └── kafka.py                   # Kafka producer
 │   ├── db/
-│   │   └── session.py                 # asyncpg connection pool
+│   │   ├── session.py                 # asyncpg connection pool
+│   │   └── queries.py                 # All DB access functions (centralized)
 │   └── worker/
-│       ├── message_processor.py       # Kafka consumer + agent runner
+│       ├── message_processor.py       # Kafka consumer + agent orchestrator
 │       └── metrics_collector.py       # Performance metrics
-├── web-form/                          # Next.js support form
+├── context/                           # CloudScale AI company dossier
+│   ├── company-profile.md             # Company background
+│   ├── product-docs.md                # Product documentation for KB seeding
+│   ├── sample-tickets.json            # 50+ sample support tickets
+│   ├── escalation-rules.md            # 7 escalation rules with thresholds
+│   └── brand-voice.md                 # Channel-specific tone guidelines
+├── specs/                             # Crystallized requirements (PDF output)
+│   ├── discovery-log.md               # 9 architectural decisions from incubation
+│   ├── customer-success-fte-spec.md   # Full FTE specification
+│   ├── transition-checklist.md        # Incubation → Production checklist
+│   └── agent-skills.md                # 5 agent skills manifest (Exercise 1.5)
+├── tests/
+│   ├── test_agent.py                  # 18 guardrail + edge case tests
+│   ├── test_channels.py               # 21 channel formatter tests
+│   └── test_e2e.py                    # 6 end-to-end pipeline tests
 ├── database/
-│   └── schema.sql                    # PostgreSQL + pgvector schema
-├── k8s/                              # Kubernetes manifests
-├── credentials/
-│   ├── client_secret.json            # Google OAuth2 client (gitignored)
-│   └── gmail_credentials.json        # OAuth2 token (gitignored)
-├── setup_gmail_auth.py               # One-time Gmail OAuth2 setup
+│   ├── schema.sql                    # PostgreSQL + pgvector schema (8 tables)
+│   └── migrations/
+│       └── 001_initial_schema.sql    # Versioned migration
+├── scripts/
+│   └── seed_kb.py                    # Idempotent knowledge base seeder
+├── web-form/                          # Next.js 15 + Tailwind support form UI
+├── k8s/                              # Kubernetes manifests (namespace, HPA, etc.)
+├── mcp_server.py                      # MCP server — 5 tools (Incubation Ex 1.4)
+├── docker-compose.yml                 # Local dev stack (Kafka)
+├── pytest.ini                         # pytest configuration
 ├── Dockerfile
 ├── requirements.txt
+├── setup_gmail_auth.py               # One-time Gmail OAuth2 setup
 └── .env                              # Environment variables (gitignored)
 ```
 
@@ -354,6 +384,22 @@ ngrok http 8000
 | `POST` | `/webhooks/whatsapp/status` | WhatsApp delivery status |
 
 Full interactive docs: `http://127.0.0.1:8000/docs`
+
+---
+
+## Running Tests
+
+```bash
+source venv/bin/activate
+pytest tests/ -v
+# 45 tests — no live DB, Kafka, or LLM required
+```
+
+| Test File | Coverage | Count |
+|-----------|----------|-------|
+| `test_agent.py` | Guardrail logic, edge cases (empty, pricing, legal, profanity) | 18 |
+| `test_channels.py` | Channel formatters (email, WhatsApp, web_form) | 21 |
+| `test_e2e.py` | Full pipeline (mocked DB + Runner) | 6 |
 
 ---
 
