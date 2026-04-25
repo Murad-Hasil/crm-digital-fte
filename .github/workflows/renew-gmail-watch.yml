@@ -1,0 +1,49 @@
+name: Renew Gmail Watch
+
+on:
+  schedule:
+    - cron: "0 9 */6 * *"   # every 6 days at 9 AM UTC — before 7-day Google expiry
+  workflow_dispatch:          # manual trigger any time
+
+jobs:
+  renew:
+    name: Renew Gmail Pub/Sub Watch
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Google API client
+        run: pip install google-api-python-client google-auth --quiet
+
+      - name: Write Gmail credentials from secret
+        run: |
+          mkdir -p credentials
+          echo '${{ secrets.GMAIL_CREDENTIALS_JSON }}' > credentials/gmail_credentials.json
+
+      - name: Renew Gmail Watch
+        run: |
+          python3 - <<'EOF'
+          import datetime
+          from google.oauth2.credentials import Credentials
+          from googleapiclient.discovery import build
+
+          creds = Credentials.from_authorized_user_file("credentials/gmail_credentials.json")
+          service = build("gmail", "v1", credentials=creds)
+          result = service.users().watch(userId="me", body={
+              "topicName": "projects/gen-lang-client-0329180837/topics/gmail-push",
+              "labelIds": ["INBOX"],
+          }).execute()
+
+          exp_ms = int(result["expiration"])
+          exp_dt = datetime.datetime.fromtimestamp(exp_ms / 1000)
+          print(f"Gmail Watch renewed successfully!")
+          print(f"History ID : {result['historyId']}")
+          print(f"Expires at : {exp_dt.strftime('%Y-%m-%d %H:%M UTC')}")
+          EOF
