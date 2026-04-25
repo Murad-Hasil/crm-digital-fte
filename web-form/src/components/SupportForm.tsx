@@ -124,6 +124,7 @@ function GlassInput({
       onChange={onChange}
       placeholder={placeholder}
       required
+      suppressHydrationWarning
       className={`
         w-full rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500
         bg-white/5 border backdrop-blur-sm outline-none transition-all duration-200
@@ -151,6 +152,7 @@ function GlassSelect({
       name={id}
       value={value}
       onChange={onChange}
+      suppressHydrationWarning
       className="
         w-full rounded-xl px-4 py-3 text-sm text-white
         bg-white/5 border border-white/10 backdrop-blur-sm outline-none
@@ -413,6 +415,7 @@ export default function SupportForm({
                 rows={5}
                 placeholder="Please describe your issue or question in detail..."
                 required
+                suppressHydrationWarning
                 className={`
                   w-full rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500
                   bg-white/5 border backdrop-blur-sm outline-none transition-all duration-200
@@ -436,6 +439,7 @@ export default function SupportForm({
           <button
             type="submit"
             disabled={isSubmitting}
+            suppressHydrationWarning
             className="
               relative w-full rounded-xl py-3.5 px-6 text-sm font-semibold text-white
               bg-gradient-to-r from-violet-600 to-indigo-600
