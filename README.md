@@ -1,3 +1,13 @@
+---
+title: CRM Digital FTE — CloudScale AI Customer Success
+emoji: 🤖
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # CRM Digital FTE — AI Customer Success Agent
 
 A production-grade AI-powered customer support system built for **Hackathon 5** of the CRM Digital FTE Factory program. The system acts as a 24/7 autonomous AI employee handling customer support across three channels simultaneously: **Email (Gmail)**, **WhatsApp**, and a **Web Support Form**.
