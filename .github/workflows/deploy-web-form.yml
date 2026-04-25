@@ -15,10 +15,6 @@ jobs:
     name: ${{ github.event_name == 'push' && 'Production Deploy' || 'Preview Deploy' }}
     runs-on: ubuntu-latest
 
-    defaults:
-      run:
-        working-directory: web-form
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -31,23 +27,27 @@ jobs:
           cache-dependency-path: web-form/package-lock.json
 
       - name: Install dependencies
+        working-directory: web-form
         run: npm ci
 
       - name: Type-check & build
+        working-directory: web-form
         run: npm run build
         env:
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
 
       - name: Deploy to Vercel (Production)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: npx vercel --prod --yes --token ${{ secrets.VERCEL_TOKEN }}
+        working-directory: web-form
+        run: npx vercel@39 --prod --yes --token ${{ secrets.VERCEL_TOKEN }}
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
       - name: Deploy to Vercel (Preview)
         if: github.event_name == 'pull_request'
-        run: npx vercel --yes --token ${{ secrets.VERCEL_TOKEN }}
+        working-directory: web-form
+        run: npx vercel@39 --yes --token ${{ secrets.VERCEL_TOKEN }}
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
