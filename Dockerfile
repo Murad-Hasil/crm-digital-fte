@@ -14,7 +14,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-RUN pip install --prefix=/install --no-cache-dir -r requirements.txt
+# Install CPU-only torch first to avoid 3GB CUDA build being pulled by sentence-transformers
+RUN pip install --prefix=/install --no-cache-dir \
+    torch==2.3.1+cpu --extra-index-url https://download.pytorch.org/whl/cpu \
+ && pip install --prefix=/install --no-cache-dir -r requirements.txt
 
 # =============================================================================
 # Stage 2 — runtime image

@@ -19,10 +19,11 @@ async def init_db_pool() -> None:
     dsn = os.environ["DATABASE_URL"]
     _pool = await asyncpg.create_pool(
         dsn=dsn,
-        min_size=2,
-        max_size=10,
+        min_size=1,
+        max_size=5,
         command_timeout=60,
         statement_cache_size=0,
+        timeout=30,
     )
     logger.info("Database connection pool initialised.")
 
