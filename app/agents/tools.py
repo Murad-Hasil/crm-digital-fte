@@ -14,7 +14,7 @@ import logging
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from functools import lru_cache
-from typing import Optional
+from typing import Literal, Optional
 
 from agents import function_tool
 
@@ -159,18 +159,17 @@ async def search_knowledge_base(query: str) -> str:
 @function_tool
 async def create_ticket(
     issue: str,
-    priority: str,
-    category: str,
+    priority: Literal["low", "medium", "high", "urgent"],
+    category: Literal["general", "technical", "billing", "feedback", "bug_report"],
 ) -> str:
     """Create a support ticket for tracking this interaction.
 
     ALWAYS call this first at the start of every conversation.
-    Include the source channel for proper multi-channel tracking.
 
     Args:
         issue: Brief summary of the customer's issue.
-        priority: Ticket priority — use 'low', 'medium', 'high', or 'urgent'.
-        category: Issue category — use 'general', 'technical', 'billing', 'feedback', or 'bug_report'.
+        priority: Ticket priority level.
+        category: Issue category.
 
     Returns:
         Ticket ID string for use in subsequent tool calls.

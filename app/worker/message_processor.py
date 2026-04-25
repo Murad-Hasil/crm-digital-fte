@@ -140,13 +140,20 @@ async def process_message(raw_message: dict) -> None:
     # Append current inbound message for the agent
     history.append({"role": "user", "content": content})
 
-    # ── 7. Run agent ──────────────────────────────────────────────────────
-    try:
-        result = await Runner.run(customer_success_agent, input=history)
-        logger.info("Agent completed | channel=%s output_len=%d", channel, len(result.final_output or ""))
-    except Exception as exc:
-        logger.error("Agent run failed: %s", exc)
-        return
+    # ── 7. Run agent (up to 3 attempts — Groq tool_use_failed is intermittent) ──
+    result = None
+    for attempt in range(1, 4):
+        try:
+            result = await Runner.run(customer_success_agent, input=history)
+            logger.info("Agent completed | channel=%s attempt=%d output_len=%d",
+                        channel, attempt, len(result.final_output or ""))
+            break
+        except Exception as exc:
+            logger.warning("Agent attempt %d/3 failed: %s", attempt, exc)
+            if attempt == 3:
+                logger.error("Agent run failed after 3 attempts — dropping message.")
+                return
+            await asyncio.sleep(2 ** attempt)   # 2s, 4s backoff
 
     # ── 8. Record latency metric ──────────────────────────────────────────
     latency_ms = int((datetime.now(timezone.utc) - start_time).total_seconds() * 1000)
