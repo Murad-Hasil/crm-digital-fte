@@ -41,8 +41,8 @@ RUN mkdir -p /app/credentials && chown fte:fte /app/credentials
 
 USER fte
 
-EXPOSE 8000
+EXPOSE 7860
 
-# Default: run the FastAPI server.
-# Override CMD in the worker Deployment to run message_processor.py instead.
-CMD ["uvicorn", "app.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
+# Default: run the FastAPI server on 7860 (HF Spaces standard port).
+# docker-compose.yml overrides CMD with --port 8000 for local dev.
+CMD ["uvicorn", "app.api.main:app", "--host", "0.0.0.0", "--port", "7860", "--workers", "2"]
