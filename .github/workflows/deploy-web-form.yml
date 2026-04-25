@@ -37,6 +37,10 @@ jobs:
         env:
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
 
+      - name: Clean build artifacts before deploy
+        working-directory: web-form
+        run: rm -rf .next
+
       - name: Deploy to Vercel (Production)
         if: >-
           (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
