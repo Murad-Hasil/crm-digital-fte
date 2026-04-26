@@ -83,9 +83,10 @@ All of this happens automatically, in real time, with no human in the loop.
 | Layer | Technology |
 |-------|-----------|
 | AI Agent | OpenAI Agents SDK (configured for Groq) |
-| LLM | `llama-3.3-70b-versatile` via Groq API |
+| LLM (Primary) | `llama-3.3-70b-versatile` via Groq API |
+| LLM (Fallback) | `gpt-4o-mini` via OpenAI API (activates when Groq daily quota hit) |
 | Backend API | FastAPI (Python, async) |
-| Message Queue | Apache Kafka (aiokafka) |
+| Message Queue | Apache Kafka / asyncio.Queue (HF Spaces mode) |
 | Database | Neon PostgreSQL + pgvector |
 | Email | Gmail API + Google Pub/Sub webhooks |
 | WhatsApp | Twilio WhatsApp Sandbox |
@@ -453,6 +454,12 @@ Full async support for FastAPI and the worker's async Kafka consumer loop.
 | `google-auth-oauthlib` missing | Added to `requirements.txt` |
 | DATABASE_URL pointing to Neon, schema on localhost | Re-ran schema against Neon cloud database |
 | Kafka not installed | Ran via Docker single-node KRaft mode |
+| HF Space `APP_STARTING` loop | Dockerfile port was 8000, HF expected 7860 — fixed `EXPOSE` + CMD; added `ENV USE_LOCAL_QUEUE=true` |
+| Groq `tool_use_failed` | LLaMA generated malformed XML tool calls — fixed with `Literal` types + 3-attempt retry |
+| Groq `429` retry too fast | Retry waited 2s/4s but limit needed 90s — now parses `try again in Xm Ys` from error |
+| Duplicate emails | Agent called `send_response` multiple times — `response_sent` flag in `ProcessingContext` |
+| Ticket ID mismatch (browser vs email) | DB generated new UUID ignoring web form ID — now pre-seeded from `channel_message_id` |
+| Vercel 404 on every non-web-form push | Vercel Git integration deployed from wrong directory — disabled via `vercel.json` `github.enabled: false` |
 
 ---
 
@@ -465,7 +472,7 @@ Full async support for FastAPI and the worker's async Kafka consumer loop.
 | API Health Check | HF Spaces | https://mb-murad-crm-digital-fte-api.hf.space/health |
 | API Docs (Swagger) | HF Spaces | https://mb-murad-crm-digital-fte-api.hf.space/docs |
 
-The backend runs in `USE_LOCAL_QUEUE=true` mode on HF Spaces — asyncio.Queue replaces Kafka, no Java required. See `Dockerfile.hf` for the single-container build.
+The backend runs in `USE_LOCAL_QUEUE=true` mode on HF Spaces — asyncio.Queue replaces Kafka, no Java required. `ENV USE_LOCAL_QUEUE=true` is baked into the `Dockerfile`; docker-compose overrides it with `false` for local dev.
 
 ---
 
