@@ -36,6 +36,7 @@ x-python-env: &python-env
     OPENAI_BASE_URL: https://api.groq.com/openai/v1
     OPENAI_AGENTS_DISABLE_TRACING: "1"
     LOG_LEVEL: INFO
+    USE_LOCAL_QUEUE: "false"
 
 
 services:

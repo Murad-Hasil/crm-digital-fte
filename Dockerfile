@@ -41,6 +41,10 @@ RUN mkdir -p /app/credentials && chown fte:fte /app/credentials
 
 USER fte
 
+# HF Spaces default — use asyncio.Queue instead of Kafka.
+# docker-compose.yml overrides this with USE_LOCAL_QUEUE=false for local dev.
+ENV USE_LOCAL_QUEUE=true
+
 EXPOSE 7860
 
 # Default: run the FastAPI server on 7860 (HF Spaces standard port).
