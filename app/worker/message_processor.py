@@ -25,7 +25,11 @@ load_dotenv()
 
 from aiokafka import AIOKafkaConsumer
 
-from app.agents.customer_success_agent import customer_success_agent, init_agent
+from app.agents.customer_success_agent import (
+    customer_success_agent,
+    customer_success_agent_openai,
+    init_agent,
+)
 from app.agents.tools import ProcessingContext, set_processing_context
 from app.db.queries import (
     create_escalation_ticket,
@@ -178,8 +182,16 @@ async def process_message(raw_message: dict) -> None:
                 return
 
             if is_rate_limit and wait > 300:
-                # Daily token quota exhausted — retrying won't help today
-                logger.error("Groq daily token limit hit (retry in %.0fs) — dropping message.", wait)
+                # Daily token quota exhausted — switch to OpenAI fallback if available
+                if customer_success_agent_openai:
+                    logger.warning("Groq daily limit hit — switching to OpenAI fallback.")
+                    try:
+                        result = await Runner.run(customer_success_agent_openai, input=history)
+                        logger.info("OpenAI fallback succeeded | channel=%s", channel)
+                    except Exception as fallback_exc:
+                        logger.error("OpenAI fallback also failed: %s", fallback_exc)
+                    return
+                logger.error("Groq daily limit hit, no OpenAI fallback configured — dropping message.")
                 return
 
             logger.warning("Agent attempt %d/3 failed (retry in %.0fs): %s", attempt, wait, exc)
