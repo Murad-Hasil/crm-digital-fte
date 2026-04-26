@@ -41,9 +41,10 @@ RUN mkdir -p /app/credentials && chown fte:fte /app/credentials
 
 USER fte
 
-# HF Spaces default — use asyncio.Queue instead of Kafka.
-# docker-compose.yml overrides this with USE_LOCAL_QUEUE=false for local dev.
-ENV USE_LOCAL_QUEUE=true
+# HF Spaces defaults.
+# docker-compose.yml overrides USE_LOCAL_QUEUE=false for local dev.
+ENV USE_LOCAL_QUEUE=true \
+    OPENAI_AGENTS_DISABLE_TRACING=1
 
 EXPOSE 7860
 

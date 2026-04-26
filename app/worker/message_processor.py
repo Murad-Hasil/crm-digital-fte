@@ -17,6 +17,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 from datetime import datetime, timezone
 
 from dotenv import load_dotenv
@@ -149,7 +150,17 @@ async def process_message(raw_message: dict) -> None:
     # Append current inbound message for the agent
     history.append({"role": "user", "content": content})
 
-    # ── 7. Run agent (up to 3 attempts — Groq tool_use_failed is intermittent) ──
+    # ── 7. Run agent (up to 3 attempts) ─────────────────────────────────────────
+    # Groq returns two kinds of 429:
+    #   - RPM / TPM  : short wait (seconds)  — retry makes sense
+    #   - TPD (daily): long wait (minutes)   — drop, no point retrying same day
+    def _retry_wait(exc: Exception) -> float:
+        """Return suggested wait in seconds from a Groq 429 message, else 0."""
+        m = re.search(r"try again in (?:(\d+)m)?(?:(\d+(?:\.\d+)?)s)?", str(exc))
+        if m:
+            return float(m.group(1) or 0) * 60 + float(m.group(2) or 0)
+        return 0
+
     result = None
     for attempt in range(1, 4):
         try:
@@ -158,11 +169,21 @@ async def process_message(raw_message: dict) -> None:
                         channel, attempt, len(result.final_output or ""))
             break
         except Exception as exc:
-            logger.warning("Agent attempt %d/3 failed: %s", attempt, exc)
+            exc_str = str(exc)
+            is_rate_limit = "429" in exc_str or "rate_limit_exceeded" in exc_str
+            wait = _retry_wait(exc) if is_rate_limit else 2 ** attempt
+
             if attempt == 3:
                 logger.error("Agent run failed after 3 attempts — dropping message.")
                 return
-            await asyncio.sleep(2 ** attempt)   # 2s, 4s backoff
+
+            if is_rate_limit and wait > 300:
+                # Daily token quota exhausted — retrying won't help today
+                logger.error("Groq daily token limit hit (retry in %.0fs) — dropping message.", wait)
+                return
+
+            logger.warning("Agent attempt %d/3 failed (retry in %.0fs): %s", attempt, wait, exc)
+            await asyncio.sleep(wait)
 
     # ── 8. Record latency metric ──────────────────────────────────────────
     latency_ms = int((datetime.now(timezone.utc) - start_time).total_seconds() * 1000)
