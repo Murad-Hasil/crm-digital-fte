@@ -126,6 +126,14 @@ async def process_message(raw_message: dict) -> None:
         history = await load_history(conn, conversation_id)
 
     # ── 6. Set processing context (contextvars) ──────────────────────────
+    # Web form pre-generates a UUID shown to the user (stored as channel_message_id).
+    # Pre-seeding ticket_id ensures the DB ticket matches what the browser displayed.
+    web_form_ticket_id = (
+        raw_message.get("channel_message_id")
+        if channel == "web_form"
+        else None
+    )
+
     ctx = ProcessingContext(
         customer_id=customer_id,
         conversation_id=conversation_id,
@@ -134,6 +142,7 @@ async def process_message(raw_message: dict) -> None:
         customer_email=raw_message.get("customer_email"),
         customer_phone=raw_message.get("customer_phone"),
         gmail_thread_id=raw_message.get("metadata", {}).get("thread_id"),
+        ticket_id=web_form_ticket_id,
     )
     set_processing_context(ctx)
 

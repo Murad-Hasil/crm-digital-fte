@@ -37,7 +37,8 @@ class ProcessingContext:
     customer_email: Optional[str] = None
     customer_phone: Optional[str] = None
     gmail_thread_id: Optional[str] = None
-    ticket_id: Optional[str] = None          # populated after create_ticket runs
+    ticket_id: Optional[str] = None          # pre-set from web form UUID, or populated after create_ticket
+    response_sent: bool = False               # guard against duplicate send_response calls
 
 
 _ctx_var: ContextVar[ProcessingContext] = ContextVar("processing_context")
@@ -178,21 +179,40 @@ async def create_ticket(
     pool = await get_db_pool()
 
     async with pool.acquire() as conn:
-        ticket_id = await conn.fetchval(
-            """
-            INSERT INTO tickets
-                (conversation_id, customer_id, source_channel, category, priority, status)
-            VALUES ($1, $2, $3, $4, $5, 'open')
-            RETURNING id
-            """,
-            ctx.conversation_id,
-            ctx.customer_id,
-            ctx.channel,
-            category or "general",
-            priority,
-        )
+        if ctx.ticket_id:
+            # Web form pre-generates a UUID shown to the user — reuse it so the
+            # DB ticket ID matches what was displayed in the browser.
+            await conn.execute(
+                """
+                INSERT INTO tickets
+                    (id, conversation_id, customer_id, source_channel, category, priority, status)
+                VALUES ($1, $2, $3, $4, $5, $6, 'open')
+                ON CONFLICT (id) DO NOTHING
+                """,
+                ctx.ticket_id,
+                ctx.conversation_id,
+                ctx.customer_id,
+                ctx.channel,
+                category or "general",
+                priority,
+            )
+            ticket_id = ctx.ticket_id
+        else:
+            ticket_id = await conn.fetchval(
+                """
+                INSERT INTO tickets
+                    (conversation_id, customer_id, source_channel, category, priority, status)
+                VALUES ($1, $2, $3, $4, $5, 'open')
+                RETURNING id
+                """,
+                ctx.conversation_id,
+                ctx.customer_id,
+                ctx.channel,
+                category or "general",
+                priority,
+            )
+            ctx.ticket_id = str(ticket_id)
 
-    ctx.ticket_id = str(ticket_id)
     logger.info("Ticket created: %s | customer=%s channel=%s", ticket_id, ctx.customer_id, ctx.channel)
     return f"Ticket created: {ticket_id}"
 
@@ -312,6 +332,12 @@ async def send_response(message: str) -> str:
         Delivery status string.
     """
     ctx = get_processing_context()
+
+    # Prevent LLM from sending duplicate emails if it calls this tool more than once.
+    if ctx.response_sent:
+        logger.warning("send_response called again for conversation %s — ignoring duplicate.", ctx.conversation_id)
+        return "Response already sent for this conversation."
+
     ticket_id = ctx.ticket_id or "unknown"
     formatted = format_for_channel(message, ctx.channel, ticket_id)
 
@@ -328,6 +354,8 @@ async def send_response(message: str) -> str:
             ctx.channel,
             formatted,
         )
+
+    ctx.response_sent = True   # set before dispatch so retries are blocked even if dispatch fails
 
     # Dispatch to channel-specific sender
     await _dispatch(formatted, ctx)
