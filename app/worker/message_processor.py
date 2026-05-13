@@ -167,11 +167,14 @@ async def process_message(raw_message: dict) -> None:
             logger.info("Auto-escalated ticket %s | reason=%s", ticket_id, reason)
 
             # Send acknowledgment email so customer knows their request was received
+            # Use the browser-shown ticket ID (channel_message_id) so it matches
+            # what the web form displayed — fall back to DB ticket if not present.
             customer_email = raw_message.get("customer_email")
             if customer_email:
+                display_ticket_id = raw_message.get("channel_message_id") or str(ticket_id)
                 await _send_escalation_email(
                     customer_email=customer_email,
-                    ticket_id=str(ticket_id),
+                    ticket_id=display_ticket_id,
                     channel=channel,
                     subject=subject,
                 )
