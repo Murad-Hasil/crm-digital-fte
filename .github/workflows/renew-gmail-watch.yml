@@ -9,6 +9,9 @@ jobs:
   renew:
     name: Refresh OAuth Token + Renew Gmail Watch + Sync Secrets
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      secrets: write
 
     steps:
       - name: Checkout
@@ -74,10 +77,11 @@ jobs:
           print(f"  Expires at : {exp_dt.strftime('%Y-%m-%d %H:%M UTC')}")
           EOF
 
-      # gh CLI is pre-installed on ubuntu-latest; GH_PAT needs repo+secrets scope
+      # GITHUB_TOKEN with secrets:write permission (set on this job) handles this —
+      # no external PAT needed, no expiry risk.
       - name: Update GitHub Secret — GMAIL_CREDENTIALS_JSON
         env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           gh secret set GMAIL_CREDENTIALS_JSON \
             --repo "${{ github.repository }}" \
