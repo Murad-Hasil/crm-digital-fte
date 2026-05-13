@@ -9,6 +9,8 @@ jobs:
   renew:
     name: Refresh OAuth Token + Renew Gmail Watch + Sync Secrets
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
       - name: Checkout
