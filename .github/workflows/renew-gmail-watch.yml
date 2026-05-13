@@ -9,9 +9,6 @@ jobs:
   renew:
     name: Refresh OAuth Token + Renew Gmail Watch + Sync Secrets
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      secrets: write
 
     steps:
       - name: Checkout
@@ -77,16 +74,9 @@ jobs:
           print(f"  Expires at : {exp_dt.strftime('%Y-%m-%d %H:%M UTC')}")
           EOF
 
-      # GITHUB_TOKEN with secrets:write permission (set on this job) handles this —
-      # no external PAT needed, no expiry risk.
-      - name: Update GitHub Secret — GMAIL_CREDENTIALS_JSON
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh secret set GMAIL_CREDENTIALS_JSON \
-            --repo "${{ github.repository }}" \
-            --body "$(cat credentials/gmail_credentials.json)"
-          echo "GitHub secret updated."
+      # Note: GitHub secret update removed — Google refresh_token never rotates,
+      # so the stored secret stays valid. Only the HF Space needs the fresh token
+      # (for cold starts). The next run of this workflow re-refreshes regardless.
 
       # Updates the GMAIL_CREDENTIALS_JSON variable in the HF Space so the
       # running app always has a fresh token on next cold start / restart
