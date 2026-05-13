@@ -7,7 +7,7 @@ on:
 
 jobs:
   renew:
-    name: Renew Gmail Pub/Sub Watch
+    name: Refresh OAuth Token + Renew Gmail Watch + Sync Secrets
     runs-on: ubuntu-latest
 
     steps:
@@ -19,31 +19,89 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install Google API client
-        run: pip install google-api-python-client google-auth --quiet
+      - name: Install dependencies
+        run: pip install google-api-python-client google-auth google-auth-httplib2 "huggingface-hub>=0.20" --quiet
 
+      # Use env var (not echo) to safely write JSON that may contain special chars
       - name: Write Gmail credentials from secret
+        env:
+          CREDS_JSON: ${{ secrets.GMAIL_CREDENTIALS_JSON }}
         run: |
           mkdir -p credentials
-          echo '${{ secrets.GMAIL_CREDENTIALS_JSON }}' > credentials/gmail_credentials.json
+          python3 -c "import os; open('credentials/gmail_credentials.json','w').write(os.environ['CREDS_JSON'])"
 
-      - name: Renew Gmail Watch
+      - name: Refresh OAuth token + Renew Gmail Watch
         run: |
           python3 - <<'EOF'
-          import datetime
+          import json, datetime
+          from google.auth.transport.requests import Request
           from google.oauth2.credentials import Credentials
           from googleapiclient.discovery import build
 
-          creds = Credentials.from_authorized_user_file("credentials/gmail_credentials.json")
+          CREDS_PATH   = "credentials/gmail_credentials.json"
+          PUBSUB_TOPIC = "projects/gen-lang-client-0329180837/topics/gmail-push"
+
+          # Load credentials and force-refresh the access token
+          creds = Credentials.from_authorized_user_file(CREDS_PATH)
+          creds.refresh(Request())
+          print(f"OAuth token refreshed — expires: {creds.expiry}")
+
+          # Persist refreshed token back to file (with expiry so google-auth knows it's fresh)
+          token_data = {
+              "token":         creds.token,
+              "refresh_token": creds.refresh_token,
+              "token_uri":     creds.token_uri,
+              "client_id":     creds.client_id,
+              "client_secret": creds.client_secret,
+              "scopes":        list(creds.scopes),
+              "expiry":        creds.expiry.isoformat() if creds.expiry else None,
+          }
+          with open(CREDS_PATH, "w") as f:
+              json.dump(token_data, f, indent=2)
+          print("Updated credentials written to file.")
+
+          # Renew Gmail Pub/Sub Watch subscription (expires every 7 days)
           service = build("gmail", "v1", credentials=creds)
           result = service.users().watch(userId="me", body={
-              "topicName": "projects/gen-lang-client-0329180837/topics/gmail-push",
+              "topicName": PUBSUB_TOPIC,
               "labelIds": ["INBOX"],
           }).execute()
 
           exp_ms = int(result["expiration"])
           exp_dt = datetime.datetime.fromtimestamp(exp_ms / 1000)
-          print(f"Gmail Watch renewed successfully!")
-          print(f"History ID : {result['historyId']}")
-          print(f"Expires at : {exp_dt.strftime('%Y-%m-%d %H:%M UTC')}")
+          print(f"Gmail Watch renewed!")
+          print(f"  History ID : {result['historyId']}")
+          print(f"  Expires at : {exp_dt.strftime('%Y-%m-%d %H:%M UTC')}")
+          EOF
+
+      # gh CLI is pre-installed on ubuntu-latest; GH_PAT needs repo+secrets scope
+      - name: Update GitHub Secret — GMAIL_CREDENTIALS_JSON
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          gh secret set GMAIL_CREDENTIALS_JSON \
+            --repo "${{ github.repository }}" \
+            --body "$(cat credentials/gmail_credentials.json)"
+          echo "GitHub secret updated."
+
+      # Updates the GMAIL_CREDENTIALS_JSON variable in the HF Space so the
+      # running app always has a fresh token on next cold start / restart
+      - name: Update HF Space Secret — GMAIL_CREDENTIALS_JSON
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          python3 - <<'EOF'
+          import os
+          from huggingface_hub import HfApi
+
+          api = HfApi(token=os.environ["HF_TOKEN"])
+          with open("credentials/gmail_credentials.json") as f:
+              new_creds = f.read()
+
+          api.add_space_secret(
+              repo_id="mb-murad/crm-digital-fte-api",
+              key="GMAIL_CREDENTIALS_JSON",
+              value=new_creds,
+          )
+          print("HF Space secret updated.")
           EOF

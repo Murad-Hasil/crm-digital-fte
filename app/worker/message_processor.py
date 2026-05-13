@@ -56,7 +56,8 @@ GROUP_ID = "fte-message-processor"
 # ---------------------------------------------------------------------------
 # Guardrail keyword sets (pre-LLM, O(1) checks)
 # ---------------------------------------------------------------------------
-_PRICING_KEYWORDS = {"price", "pricing", "cost", "costs", "how much", "fee", "fees", "subscription", "plan", "plans", "quote"}
+# "plan" / "plans" removed — too broad (e.g. "Pro plan" is not a pricing inquiry)
+_PRICING_KEYWORDS = {"price", "pricing", "cost", "costs", "how much", "fee", "fees", "subscription", "quote", "pricing plan", "how much does", "what does it cost"}
 _REFUND_KEYWORDS = {"refund", "refunds", "money back", "chargeback", "reimburse", "reimbursement"}
 _LEGAL_KEYWORDS = {"lawyer", "attorney", "legal", "sue", "lawsuit", "court"}
 _HUMAN_REQUEST_KEYWORDS = {"human", "agent", "person", "representative", "speak to someone"}
@@ -82,6 +83,45 @@ def _check_guardrails(content: str) -> tuple[bool, str]:
         return True, "aggressive_language"
 
     return False, ""
+
+
+# ---------------------------------------------------------------------------
+# Escalation email helper
+# ---------------------------------------------------------------------------
+
+async def _send_escalation_email(
+    customer_email: str,
+    ticket_id: str,
+    channel: str,
+    subject: str,
+) -> None:
+    """Send a confirmation email when a ticket is auto-escalated to a human agent."""
+    if channel not in ("web_form", "email"):
+        return  # WhatsApp gets no email notification
+    try:
+        import asyncio as _asyncio
+        from app.channels.gmail_handler import GmailHandler
+
+        email_subject = f"Your Support Request Received — Ticket #{ticket_id}"
+        body = (
+            f"Thank you for reaching out to CloudScale AI Support.\n\n"
+            f"We've received your request and a member of our team will follow up with you shortly.\n\n"
+            f"---\n"
+            f"Ticket Reference: #{ticket_id}\n"
+            f"CloudScale AI Customer Success Team"
+        )
+        handler = GmailHandler()
+        await _asyncio.get_event_loop().run_in_executor(
+            None,
+            handler.send_reply,
+            customer_email,
+            email_subject,
+            body,
+            None,
+        )
+        logger.info("Escalation acknowledgment sent | ticket=%s to=%s", ticket_id, customer_email)
+    except Exception as exc:
+        logger.error("Failed to send escalation email | ticket=%s error=%s", ticket_id, exc)
 
 
 # ---------------------------------------------------------------------------
@@ -125,6 +165,16 @@ async def process_message(raw_message: dict) -> None:
             ticket_id = await create_escalation_ticket(conn, conversation_id, customer_id, channel)
             await update_conversation_escalated(conn, conversation_id)
             logger.info("Auto-escalated ticket %s | reason=%s", ticket_id, reason)
+
+            # Send acknowledgment email so customer knows their request was received
+            customer_email = raw_message.get("customer_email")
+            if customer_email:
+                await _send_escalation_email(
+                    customer_email=customer_email,
+                    ticket_id=str(ticket_id),
+                    channel=channel,
+                    subject=subject,
+                )
             return
 
         # ── 5. Load conversation history for agent ───────────────────────

@@ -45,6 +45,7 @@ def main():
         "client_id": creds.client_id,
         "client_secret": creds.client_secret,
         "scopes": list(creds.scopes),
+        "expiry": creds.expiry.isoformat() if creds.expiry else None,
     }
 
     os.makedirs("credentials", exist_ok=True)

@@ -23,11 +23,34 @@ class GmailHandler:
         if self._service:
             return self._service
         try:
+            import json
+            from google.auth.transport.requests import Request
             from google.oauth2.credentials import Credentials
             from googleapiclient.discovery import build
 
             creds_path = os.environ.get("GMAIL_CREDENTIALS_PATH", "credentials/gmail_credentials.json")
             creds = Credentials.from_authorized_user_file(creds_path)
+
+            # Refresh if expired or expiry unknown (token could be stale from file)
+            if not creds.valid:
+                if creds.refresh_token:
+                    creds.refresh(Request())
+                    # Persist the refreshed token so next load doesn't need a round-trip
+                    token_data = {
+                        "token": creds.token,
+                        "refresh_token": creds.refresh_token,
+                        "token_uri": creds.token_uri,
+                        "client_id": creds.client_id,
+                        "client_secret": creds.client_secret,
+                        "scopes": list(creds.scopes),
+                        "expiry": creds.expiry.isoformat() if creds.expiry else None,
+                    }
+                    with open(creds_path, "w") as f:
+                        json.dump(token_data, f, indent=2)
+                    logger.info("Gmail token refreshed and persisted to %s", creds_path)
+                else:
+                    raise RuntimeError("Gmail credentials invalid and no refresh_token available. Re-run setup_gmail_auth.py.")
+
             self._service = build("gmail", "v1", credentials=creds)
         except Exception as exc:
             logger.error("Failed to initialise Gmail service: %s", exc)
